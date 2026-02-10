@@ -1,6 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 import { useAuthStore, useChatStore } from '../store';
-import { Avatar, Modal, IconSend, IconPaperclip, IconMicrophone, IconCheck, IconCheckDouble, IconFile, IconDownload, IconReply, IconEdit, IconTrash, IconPin, IconForward, IconX, IconBack, IconInfo, IconSearch, IconDotsVertical, IconStarOutline, IconStarFilled, IconSmile, IconChevronUp, IconChevronDown, TypingDots, formatTime, formatFileSize, IconPhone } from './ui';
+import { Avatar, Modal, IconSend, IconPaperclip, IconMicrophone, IconCheck, IconCheckDouble, IconFile, IconDownload, IconReply, IconEdit, IconTrash, IconPin, IconForward, IconX, IconBack, IconInfo, IconSearch, IconDotsVertical, IconStarOutline, IconStarFilled, IconSmile, IconChevronUp, IconChevronDown, TypingDots, formatTime, formatFileSize, IconPhone, IconPlay, IconPause, IconVolume } from './ui';
 import UserCard from './UserCard';
 import type { Message, ChatWithLastMessage } from '../types';
 
@@ -16,6 +16,17 @@ const EMOJI_CATEGORIES: { label: string; emojis: string[] }[] = [
   { label: 'Символы', emojis: ['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '💯', '💥', '💫', '⭐', '🌟', '✨', '⚡', '🔥', '💧', '🌊', '🎵', '🎶', '✅', '❌', '⚠️', '🚫', '💡', '🔔', '📌', '📎'] },
   { label: 'Еда', emojis: ['🍎', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐', '🍒', '🍑', '🥭', '🍍', '🥥', '🥝', '🍅', '🥑', '🌽', '🌶️', '🍕', '🍔', '🍟', '🌮', '🍣', '🍱', '☕', '🍺', '🍷'] },
 ];
+
+const RECORDING_WAVE = [6, 10, 14, 9, 16, 12, 8, 14, 10, 6];
+const VOICE_WAVE = [4, 8, 6, 10, 7, 12, 9, 5, 8, 6, 10, 7, 12, 9, 5, 8, 6, 10, 7, 12, 9, 5];
+
+function formatAudioTime(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds <= 0) return '0:00';
+  const s = Math.floor(seconds);
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}:${String(r).padStart(2, '0')}`;
+}
 
 interface ChatProps { onBack: () => void; onOpenInfo: () => void; onOpenSearch?: () => void; onOpenProfile?: () => void; }
 
@@ -47,6 +58,7 @@ export default function Chat({ onBack, onOpenInfo, onOpenSearch, onOpenProfile }
   const recordedChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval>>();
   const recordingChatIdRef = useRef<string | null>(null);
+  const recordingCancelledRef = useRef(false);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; msg: Message } | null>(null);
   const [forwardMsg, setForwardMsg] = useState<Message | null>(null);
   const [emojiPickerFor, setEmojiPickerFor] = useState<string | null>(null);
@@ -271,13 +283,21 @@ export default function Chat({ onBack, onOpenInfo, onOpenSearch, onOpenProfile }
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
       const recorder = new MediaRecorder(stream);
+      recordingCancelledRef.current = false;
       recordedChunksRef.current = [];
       recordingChatIdRef.current = activeChatId;
       recorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunksRef.current.push(e.data); };
       recorder.onstop = async () => {
         stream.getTracks().forEach((t) => t.stop());
+        const wasCancelled = recordingCancelledRef.current;
+        recordingCancelledRef.current = false;
         const chatId = recordingChatIdRef.current;
         recordingChatIdRef.current = null;
+        if (wasCancelled) {
+          recordedChunksRef.current = [];
+          setUploading(false);
+          return;
+        }
         const blob = new Blob(recordedChunksRef.current, { type: mime });
         try {
           if (blob.size === 0 || !chatId) return;
@@ -306,14 +326,15 @@ export default function Chat({ onBack, onOpenInfo, onOpenSearch, onOpenProfile }
     } catch { /* */ }
   }, [activeChatId, uploadVoice, addOptimisticVoiceMessage, updateOptimisticVoiceMessage, sendMessageWsOnly, removeOptimisticMessage]);
 
-  const stopRecording = useCallback(() => {
+  const stopRecording = useCallback((send = true) => {
     if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
     setRecording(false);
     setRecordingSec(0);
     const recorder = mediaRecorderRef.current;
     mediaRecorderRef.current = null;
     if (recorder?.state === 'recording') {
-      setUploading(true);
+      recordingCancelledRef.current = !send;
+      if (send) setUploading(true);
       try {
         recorder.requestData();
       } catch { /* */ }
@@ -321,9 +342,25 @@ export default function Chat({ onBack, onOpenInfo, onOpenSearch, onOpenProfile }
     }
   }, []);
 
+  const cancelRecording = useCallback(() => {
+    stopRecording(false);
+  }, [stopRecording]);
+
   useEffect(() => {
     return () => { if (recordingTimerRef.current) clearInterval(recordingTimerRef.current); };
   }, []);
+
+  useEffect(() => {
+    if (!recording) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        cancelRecording();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [recording, cancelRecording]);
 
   useEffect(() => {
     if (!voiceError) return;
@@ -636,11 +673,11 @@ export default function Chat({ onBack, onOpenInfo, onOpenSearch, onOpenProfile }
         <div className="shrink-0 px-4 py-3 flex items-center gap-4 bg-surface dark:bg-dark-elevated border-t border-surface-border dark:border-dark-border">
           {/* Waveform animation (Telegram-style) */}
           <div className="flex items-end gap-0.5 h-6" aria-hidden>
-            {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
+            {RECORDING_WAVE.map((h, i) => (
               <span
                 key={i}
-                className="w-1 rounded-full bg-primary dark:bg-primary/90 animate-voice-bar h-4"
-                style={{ animationDelay: `${i * 0.06}s` }}
+                className="w-1 rounded-full bg-primary dark:bg-primary/90 animate-voice-bar"
+                style={{ height: `${h}px`, animationDelay: `${i * 0.07}s` }}
               />
             ))}
           </div>
@@ -648,15 +685,26 @@ export default function Chat({ onBack, onOpenInfo, onOpenSearch, onOpenProfile }
             {Math.floor(recordingSec / 60)}:{(recordingSec % 60).toString().padStart(2, '0')}
           </span>
           <span className="text-[12px] text-txt-secondary dark:text-[#8b98a5]">Запись голоса</span>
-          <button
-            type="button"
-            onClick={stopRecording}
-            className="ml-auto w-10 h-10 flex items-center justify-center rounded-full bg-primary text-white hover:bg-primary-hover active:scale-95 transition-all shrink-0"
-            title="Отправить голосовое"
-            aria-label="Остановить и отправить"
-          >
-            <IconSend />
-          </button>
+          <div className="ml-auto flex items-center gap-3">
+            <button
+              type="button"
+              onClick={cancelRecording}
+              className="text-[12px] text-danger hover:underline"
+              title="Отменить (Esc)"
+            >
+              Отменить
+            </button>
+            <span className="text-[11px] text-txt-placeholder dark:text-[#8b98a5]">Esc</span>
+            <button
+              type="button"
+              onClick={() => stopRecording()}
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-primary text-white hover:bg-primary-hover active:scale-95 transition-all shrink-0"
+              title="Отправить голосовое"
+              aria-label="Остановить и отправить"
+            >
+              <IconSend />
+            </button>
+          </div>
         </div>
       )}
 
@@ -746,6 +794,100 @@ export default function Chat({ onBack, onOpenInfo, onOpenSearch, onOpenProfile }
   );
 }
 
+function VoiceMessage({ url, isOwn }: { url: string; isOwn: boolean }) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [duration, setDuration] = useState(0);
+  const [current, setCurrent] = useState(0);
+  const [playing, setPlaying] = useState(false);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const onLoaded = () => setDuration(Number.isFinite(audio.duration) ? audio.duration : 0);
+    const onTime = () => setCurrent(audio.currentTime || 0);
+    const onPlay = () => setPlaying(true);
+    const onPause = () => setPlaying(false);
+    const onEnded = () => { setPlaying(false); setCurrent(audio.duration || 0); };
+    audio.addEventListener('loadedmetadata', onLoaded);
+    audio.addEventListener('timeupdate', onTime);
+    audio.addEventListener('play', onPlay);
+    audio.addEventListener('pause', onPause);
+    audio.addEventListener('ended', onEnded);
+    return () => {
+      audio.removeEventListener('loadedmetadata', onLoaded);
+      audio.removeEventListener('timeupdate', onTime);
+      audio.removeEventListener('play', onPlay);
+      audio.removeEventListener('pause', onPause);
+      audio.removeEventListener('ended', onEnded);
+    };
+  }, []);
+
+  const toggle = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (audio.paused) {
+      audio.play().catch(() => { /* autoplay may be blocked */ });
+    } else {
+      audio.pause();
+    }
+  }, []);
+
+  const seek = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const audio = audioRef.current;
+    if (!audio || !duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = Math.min(Math.max(0, e.clientX - rect.left), rect.width);
+    const next = (x / rect.width) * duration;
+    audio.currentTime = next;
+    setCurrent(next);
+  }, [duration]);
+
+  const progress = duration > 0 ? Math.min(1, current / duration) : 0;
+  const activeBars = Math.max(0, Math.round(progress * VOICE_WAVE.length));
+
+  return (
+    <div className="voice-msg">
+      <button
+        type="button"
+        onClick={toggle}
+        className={`voice-play ${isOwn ? 'bg-white/20 text-white' : 'bg-primary/10 text-primary'}`}
+        aria-label={playing ? 'Пауза' : 'Воспроизвести'}
+        title={playing ? 'Пауза' : 'Воспроизвести'}
+      >
+        {playing ? <IconPause size={14} /> : <IconPlay size={14} />}
+      </button>
+      <div
+        className={`voice-wave ${isOwn ? 'text-white' : 'text-primary'}`}
+        onClick={seek}
+        role="slider"
+        aria-valuemin={0}
+        aria-valuemax={Math.round(duration)}
+        aria-valuenow={Math.round(current)}
+      >
+        {VOICE_WAVE.map((h, i) => (
+          <span
+            key={i}
+            className={`voice-bar ${i < activeBars ? 'voice-bar-active' : ''}`}
+            style={{ height: `${h}px` }}
+          />
+        ))}
+      </div>
+      <span className={`voice-time ${isOwn ? 'text-white/80' : 'text-txt-secondary dark:text-[#8b98a5]'}`}>
+        {formatAudioTime(playing ? current : duration)}
+      </span>
+      <button
+        type="button"
+        className={`voice-vol ${isOwn ? 'text-white/70 hover:bg-white/15' : 'text-txt-secondary hover:bg-primary/10'}`}
+        aria-label="Громкость"
+        title="Громкость"
+      >
+        <IconVolume size={14} />
+      </button>
+      <audio ref={audioRef} src={url} preload="metadata" />
+    </div>
+  );
+}
+
 /* ── Header menu item (Telegram-style) ── */
 function HeaderMenuItem({ label, onClick }: { label: string; onClick: () => void }) {
   return (
@@ -831,12 +973,9 @@ function MsgBubble({ msg, isOwn, showAvatar, isGroup, onCtx, onReply, onReact, m
             </a>
           )}
           {msg.content_type === 'voice' && (
-            <div className="mb-1.5 flex items-center gap-2 min-w-[200px] max-w-[280px]">
+            <div className="mb-1.5">
               {msg.file_url ? (
-                <audio controls className="flex-1 h-9" style={{ maxHeight: 36 }}
-                  src={msg.file_url}
-                  preload="metadata"
-                />
+                <VoiceMessage url={msg.file_url} isOwn={isOwn} />
               ) : (
                 <span className="flex items-center gap-2 text-[13px] text-txt-secondary dark:text-[#8b98a5]">
                   <span className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin shrink-0" />

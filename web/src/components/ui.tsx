@@ -108,6 +108,30 @@ export function IconMicrophone({ size = 20 }: { size?: number }) {
     </svg>
   );
 }
+export function IconPlay({ size = 16 }: { size?: number } = {}) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+      <polygon points="7,5 19,12 7,19" />
+    </svg>
+  );
+}
+export function IconPause({ size = 16 }: { size?: number } = {}) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+      <rect x="6" y="5" width="4" height="14" rx="1" />
+      <rect x="14" y="5" width="4" height="14" rx="1" />
+    </svg>
+  );
+}
+export function IconVolume({ size = 16 }: { size?: number } = {}) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+      <path d="M15 9a4 4 0 010 6" />
+      <path d="M18 6a8 8 0 010 12" />
+    </svg>
+  );
+}
 export function IconPlus({ size = 18 }: { size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" {...s}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
 }

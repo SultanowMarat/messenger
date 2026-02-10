@@ -49,5 +49,5 @@ macos/dist/
 *.swp
 *.swo
 
-# README оставляем в репозитории
-!README.md
+# README оставляем в корне репозитория
+!/README.md

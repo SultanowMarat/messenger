@@ -217,12 +217,68 @@ html { scroll-behavior: smooth; }
 
 /* Voice recording waveform bars (Telegram-style) */
 @keyframes voice-bar {
-  0%, 100% { transform: scaleY(0.35); }
-  50% { transform: scaleY(1); }
+  0% { transform: scaleY(0.3); }
+  25% { transform: scaleY(0.95); }
+  50% { transform: scaleY(0.45); }
+  75% { transform: scaleY(1); }
+  100% { transform: scaleY(0.35); }
 }
 .animate-voice-bar {
   transform-origin: center bottom;
   animation: voice-bar 0.5s ease-in-out infinite;
+}
+
+/* Voice message bubble (Telegram-style) */
+.voice-msg {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 220px;
+  max-width: 320px;
+}
+.voice-play {
+  width: 32px;
+  height: 32px;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.voice-play:active { transform: scale(0.96); }
+.voice-wave {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 22px;
+  flex: 1;
+  cursor: pointer;
+  user-select: none;
+}
+.voice-bar {
+  width: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  opacity: 0.35;
+  transition: opacity 0.2s ease;
+}
+.voice-bar-active { opacity: 0.95; }
+.voice-time {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  min-width: 36px;
+  text-align: right;
+}
+.voice-vol {
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s ease;
 }
 
 /* Input styles */
