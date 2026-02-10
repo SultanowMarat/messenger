@@ -1,0 +1,38 @@
+{
+  "name": "messenger",
+  "version": "1.0.0",
+  "description": "Мессенджер — корпоративный мессенджер (macOS)",
+  "main": "main.js",
+  "author": "Messenger",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --mac",
+    "dist": "electron-builder --mac --arm64 --publish never"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "build": {
+    "appId": "com.messenger.app",
+    "productName": "Мессенджер",
+    "mac": {
+      "category": "public.app-category.social-networking",
+      "target": ["dmg"],
+      "minimumSystemVersion": "11.0",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false
+    },
+    "dmg": {
+      "contents": [
+        { "x": 130, "y": 220 },
+        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+      ],
+      "window": { "width": 540, "height": 380 }
+    },
+    "directories": {
+      "output": "dist"
+    }
+  }
+}

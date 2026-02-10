@@ -1,0 +1,19 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Конфиг сервиса: Auth (OTP по email, сессии, Redis)
+# Загружается при CONFIG_PATH=config/auth.yaml.
+# SMTP, Redis, DATABASE_URL задаются переменными окружения в .env / compose.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+server_addr: ":8081"
+read_timeout: 15
+write_timeout: 15
+idle_timeout: 60
+upload_dir: "./uploads"
+max_upload_size_mb: 20
+max_ws_connections: 10000
+ws_send_buffer_size: 256
+ws_write_timeout: 10
+ws_pong_timeout: 60
+ws_max_message_size: 4096
+cors_allowed_origins: "*"
+log_level: "info"

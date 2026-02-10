@@ -1,0 +1,8 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Конфиг: подключение к PostgreSQL (используют сервисы api и auth)
+# Скопируйте в database.yaml и задайте database_url. В production — DATABASE_URL в .env.
+# Путь: DATABASE_CONFIG_PATH или config/database.yaml
+# ═══════════════════════════════════════════════════════════════════════════════
+
+database_url: "postgres://user:password@localhost:5432/messenger?sslmode=disable"
+db_max_connections: 20

@@ -1,0 +1,50 @@
+# Секреты и локальная конфигурация (не коммитить)
+.env
+config/database.yaml
+config/vapid.json
+docs/DEPLOY.md
+.deploy/
+*.md
+
+# Установщик Docker (большой DMG)
+install/Docker.dmg
+# Скачанные бинарники и Lima/Colima
+bin/
+
+# Локальная установка Node (для make frontend-build без системного node)
+.node/
+
+# Данные сервисов (postgres, redis, nginx, uploads)
+data/
+
+# Логи сервисов (файлы в services/*/logs/)
+services/api/logs/*.log
+services/auth/logs/*.log
+services/push/logs/*.log
+services/files/logs/*.log
+services/nginx/logs/*.log
+# Директории логов целиком (создаются контейнерами)
+services/*/logs/
+
+# Сборка и кеш
+/bin/server
+/server
+/authserver
+/cleardb
+cleardb
+*.exe
+.pgdata/
+web/node_modules/
+web/dist/
+uploads/
+
+# macOS
+.DS_Store
+macos/node_modules/
+macos/dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo

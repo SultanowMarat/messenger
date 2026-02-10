@@ -1,0 +1,54 @@
+# Сборка DMG для macOS: при публикации релиза или по кнопке Run workflow.
+# Ручной запуск: Actions → Build macOS app → Run workflow → скачать DMG из Artifacts.
+name: Build macOS app
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        working-directory: macos
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+
+      - name: Build DMG
+        working-directory: macos
+        run: npm run dist
+
+      - name: Upload DMG to Release
+        if: github.event_name == 'release'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd macos/dist
+          dmg=$(ls -1 *.dmg 2>/dev/null | head -1)
+          if [ -z "$dmg" ]; then echo "No DMG found"; exit 1; fi
+          name=$(basename "$dmg")
+          name_enc=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$name'''))")
+          url="${{ github.event.release.upload_url }}?name=${name_enc}"
+          curl -sL -X POST \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Content-Type: application/octet-stream" \
+            --data-binary @"$dmg" \
+            "$url"
+          echo "Uploaded: $name"
+
+      - name: Upload DMG as artifact
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Compass-Messenger-macOS
+          path: macos/dist/*.dmg

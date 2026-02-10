@@ -1,0 +1,51 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Конфиг сервиса: API (чаты, сообщения, WebSocket, загрузка файлов)
+# Загружается при старте контейнера api. Переменные окружения переопределяют значения.
+# Путь: CONFIG_PATH=config/api.yaml (в docker-compose для api)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Адрес и порт, на котором слушает API (в контейнере :8080)
+server_addr: ":8080"
+
+# Таймаут чтения тела запроса (секунды). Защита от slowloris
+read_timeout: 15
+
+# Таймаут записи ответа клиенту (секунды)
+write_timeout: 15
+
+# Таймаут keep-alive: ожидание следующего запроса (секунды)
+idle_timeout: 60
+
+# Директория загрузок (в контейнере примонтирована data/uploads)
+upload_dir: "./uploads"
+
+# Максимальный размер одного загружаемого файла (МБ). Переменная: MAX_UPLOAD_SIZE_MB
+max_upload_size_mb: 20
+
+# Максимум одновременных WebSocket-соединений
+max_ws_connections: 10000
+
+# Размер буфера исходящих сообщений на одно WS-соединение
+ws_send_buffer_size: 256
+
+# Таймаут записи в WebSocket (секунды)
+ws_write_timeout: 10
+
+# Таймаут ожидания pong от клиента (секунды)
+ws_pong_timeout: 60
+
+# Максимальный размер входящего WS-сообщения (байты)
+ws_max_message_size: 4096
+
+# WebRTC (звонки) — список ICE серверов (STUN/TURN)
+# call_ice_servers:
+#   - urls: ["stun:stun.l.google.com:19302"]
+#   - urls: ["turn:turn.example.com:3478"]
+#     username: "user"
+#     credential: "pass"
+
+# Разрешённые CORS origins. В production — явный список, не "*"
+cors_allowed_origins: "*"
+
+# Уровень логов: debug, info, warn, error
+log_level: "info"

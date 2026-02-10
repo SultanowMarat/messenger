@@ -1,0 +1,32 @@
+# Git и IDE
+.git
+.gitignore
+.cursor
+.vscode
+*.md
+!README.md
+
+# Локальные данные и кеш
+.pgdata
+data
+uploads
+bin
+/server
+/authserver
+*.log
+
+# Документация и утилиты (не входят в образы)
+docs
+tools
+cmd
+
+# Фронт: node_modules не в образ (собирается в builder)
+web/node_modules
+web/dist
+node_modules
+npm-debug.log
+
+# Тесты и секреты
+*_test.go
+.env
+.env.*
