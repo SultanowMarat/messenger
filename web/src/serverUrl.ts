@@ -5,6 +5,10 @@
 
 const STORAGE_KEY = 'server_url';
 
+export function isDesktopApp(): boolean {
+  return typeof window !== 'undefined' && !!(window as unknown as { electronAPI?: unknown }).electronAPI;
+}
+
 function normalizeUrl(url: string): string {
   const u = url.trim();
   if (!u) return '';
@@ -21,10 +25,12 @@ function normalizeUrl(url: string): string {
 /** Текущий базовый URL (без завершающего слэша). По умолчанию — origin страницы. */
 export function getApiBase(): string {
   if (typeof window === 'undefined') return '';
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored && stored.trim()) {
-    const n = normalizeUrl(stored);
-    if (n) return n;
+  if (isDesktopApp()) {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored && stored.trim()) {
+      const n = normalizeUrl(stored);
+      if (n) return n;
+    }
   }
   return window.location.origin;
 }
@@ -33,6 +39,7 @@ export function getApiBase(): string {
 export function setServerUrl(url: string): void {
   const n = normalizeUrl(url);
   if (typeof window !== 'undefined') {
+    if (!isDesktopApp()) return;
     if (n) localStorage.setItem(STORAGE_KEY, n);
     else localStorage.removeItem(STORAGE_KEY);
   }
@@ -41,6 +48,7 @@ export function setServerUrl(url: string): void {
 /** Получить сохранённое значение (сырое), без нормализации. */
 export function getStoredServerUrl(): string {
   if (typeof window === 'undefined') return '';
+  if (!isDesktopApp()) return '';
   return localStorage.getItem(STORAGE_KEY) || '';
 }
 

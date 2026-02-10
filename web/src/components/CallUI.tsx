@@ -7,6 +7,17 @@ const STUN_SERVER = 'stun:stun.l.google.com:19302';
 const CALL_AVATAR_SIZE_DEFAULT = 120;
 const CALL_AVATAR_SIZE_SMALL = 96;
 const BREAKPOINT_SMALL = 400;
+const RING_VOLUME = 0.07;
+const RINGBACK_FREQ = 425;
+const RINGTONE_FREQ = 480;
+const RINGBACK_PATTERN: Array<{ on: number; off: number }> = [
+  { on: 0.35, off: 0.2 },
+  { on: 0.35, off: 2.0 },
+];
+const RINGTONE_PATTERN: Array<{ on: number; off: number }> = [
+  { on: 0.8, off: 0.4 },
+  { on: 0.8, off: 2.0 },
+];
 
 function formatCallDuration(ms: number): string {
   const s = Math.floor(ms / 1000);
@@ -28,6 +39,13 @@ export default function CallUI() {
   const localStreamRef = useRef<MediaStream | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const iceServersRef = useRef<RTCIceServer[]>([{ urls: STUN_SERVER }]);
+  const ringRef = useRef<{
+    ctx: AudioContext;
+    osc: OscillatorNode;
+    gain: GainNode;
+    timer: number | null;
+    mode: 'incoming' | 'outgoing';
+  } | null>(null);
   const [duration, setDuration] = useState(0);
   const [avatarSize, setAvatarSize] = useState(CALL_AVATAR_SIZE_DEFAULT);
 
@@ -50,6 +68,64 @@ export default function CallUI() {
       .catch(() => { /* optional config */ });
     return () => { cancelled = true; };
   }, []);
+
+  const stopRing = () => {
+    const r = ringRef.current;
+    if (!r) return;
+    if (r.timer) window.clearInterval(r.timer);
+    try { r.osc.stop(); } catch (_) {}
+    try { r.ctx.close(); } catch (_) {}
+    ringRef.current = null;
+  };
+
+  const startRing = (mode: 'incoming' | 'outgoing') => {
+    if (typeof window === 'undefined') return;
+    if (ringRef.current?.mode === mode) return;
+    stopRing();
+    const AudioCtx = (window.AudioContext || (window as any).webkitAudioContext) as typeof AudioContext | undefined;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const pattern = mode === 'incoming' ? RINGTONE_PATTERN : RINGBACK_PATTERN;
+    const freq = mode === 'incoming' ? RINGTONE_FREQ : RINGBACK_FREQ;
+    const cycle = pattern.reduce((s, p) => s + p.on + p.off, 0);
+
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    gain.gain.value = 0;
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+
+    const schedule = () => {
+      const base = ctx.currentTime + 0.02;
+      let t = base;
+      for (const seg of pattern) {
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(RING_VOLUME, t + 0.02);
+        gain.gain.setValueAtTime(RING_VOLUME, t + Math.max(0.02, seg.on - 0.02));
+        gain.gain.linearRampToValueAtTime(0, t + seg.on);
+        t += seg.on + seg.off;
+      }
+    };
+
+    schedule();
+    const timer = window.setInterval(schedule, cycle * 1000);
+    ringRef.current = { ctx, osc, gain, timer, mode };
+    ctx.resume().catch(() => { /* autoplay may be blocked */ });
+  };
+
+  useEffect(() => {
+    if (callError) {
+      stopRing();
+      return;
+    }
+    if (callState === 'calling') startRing('outgoing');
+    else if (callState === 'ringing') startRing('incoming');
+    else stopRing();
+    return () => stopRing();
+  }, [callState, callError]);
 
   const peerUid = callPeerId || callFromUserId;
   const peerMember = peerUid
@@ -94,8 +170,10 @@ export default function CallUI() {
 
     const pc = new RTCPeerConnection({ iceServers: iceServersRef.current });
     peerConnectionRef.current = pc;
+    let closed = false;
 
     const cleanup = () => {
+      closed = true;
       pc.close();
       peerConnectionRef.current = null;
       localStreamRef.current?.getTracks().forEach((t) => t.stop());
@@ -103,18 +181,25 @@ export default function CallUI() {
       if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
     };
 
-    navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-      .then((stream) => {
+    const ensureLocalStream = async (): Promise<MediaStream> => {
+      if (localStreamRef.current) return localStreamRef.current;
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        if (closed) {
+          stream.getTracks().forEach((t) => t.stop());
+          return stream;
+        }
         localStreamRef.current = stream;
         stream.getTracks().forEach((track) => pc.addTrack(track, stream));
-      })
-      .catch((err) => {
+        return stream;
+      } catch (err) {
         console.error('getUserMedia:', err);
         useChatStore.getState().setNotification('Нет доступа к микрофону');
         useChatStore.getState().hangupCall();
         cleanup();
-        return;
-      });
+        throw err;
+      }
+    };
 
     pc.ontrack = (e) => {
       if (!remoteAudioRef.current) return;
@@ -148,6 +233,7 @@ export default function CallUI() {
     const handler = (type: string, payload: any) => {
       if (type === 'offer' && payload?.sdp) {
         pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: payload.sdp }))
+          .then(() => ensureLocalStream())
           .then(() => pc.createAnswer())
           .then((answer) => pc.setLocalDescription(answer))
           .then(() => send('answer', { sdp: pc.localDescription?.sdp }))
@@ -165,7 +251,8 @@ export default function CallUI() {
     setCallSignalingHandler(handler);
 
     if (callIsCaller) {
-      pc.createOffer()
+      ensureLocalStream()
+        .then(() => pc.createOffer())
         .then((offer) => pc.setLocalDescription(offer))
         .then(() => send('offer', { sdp: pc.localDescription?.sdp }))
         .catch((err) => console.error('offer:', err));

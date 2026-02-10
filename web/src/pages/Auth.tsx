@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useAuthStore } from '../store';
 import { IconCompass } from '../components/ui';
-import { getStoredServerUrl, setServerUrl, checkServerReachable } from '../serverUrl';
+import { getStoredServerUrl, setServerUrl, checkServerReachable, isDesktopApp } from '../serverUrl';
 
 type Step = 'email' | 'code';
 
@@ -14,24 +14,28 @@ export default function Auth() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { requestCode, verifyCode } = useAuthStore();
+  const isApp = isDesktopApp();
 
   useEffect(() => {
-    setServerUrlInput(getStoredServerUrl() || window.location.origin);
-  }, []);
+    if (typeof window === 'undefined') return;
+    setServerUrlInput((isApp ? getStoredServerUrl() : '') || window.location.origin);
+  }, [isApp]);
 
   const handleRequestCode = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setServerUrlError('');
-    const url = serverUrlInput.trim() || window.location.origin;
+    const url = isApp ? (serverUrlInput.trim() || window.location.origin) : window.location.origin;
     setServerUrl(url);
     setLoading(true);
     try {
-      const ok = await checkServerReachable(url);
-      if (!ok) {
-        setServerUrlError('Адрес недоступен');
-        setLoading(false);
-        return;
+      if (isApp) {
+        const ok = await checkServerReachable(url);
+        if (!ok) {
+          setServerUrlError('Адрес недоступен');
+          setLoading(false);
+          return;
+        }
       }
       await requestCode(email);
       setStep('code');
@@ -40,7 +44,7 @@ export default function Auth() {
     } finally {
       setLoading(false);
     }
-  }, [email, serverUrlInput, requestCode]);
+  }, [email, serverUrlInput, requestCode, isApp]);
 
   const handleVerifyCode = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,20 +78,22 @@ export default function Auth() {
 
             {step === 'email' ? (
               <form onSubmit={handleRequestCode} className="space-y-4">
-                <div>
-                  <label className="block text-[13px] font-medium text-txt-secondary dark:text-[#8b98a5] mb-1.5">Адрес сервера</label>
-                  <input
-                    type="url"
-                    value={serverUrlInput}
-                    onChange={(e) => { setServerUrlInput(e.target.value); setServerUrlError(''); }}
-                    className="compass-input"
-                    placeholder="https://example.com"
-                    autoComplete="url"
-                  />
-                  {serverUrlError && (
-                    <p className="mt-1.5 text-[13px] font-medium text-danger">{serverUrlError}</p>
-                  )}
-                </div>
+                {isApp && (
+                  <div>
+                    <label className="block text-[13px] font-medium text-txt-secondary dark:text-[#8b98a5] mb-1.5">Адрес сервера</label>
+                    <input
+                      type="url"
+                      value={serverUrlInput}
+                      onChange={(e) => { setServerUrlInput(e.target.value); setServerUrlError(''); }}
+                      className="compass-input"
+                      placeholder="https://example.com"
+                      autoComplete="url"
+                    />
+                    {serverUrlError && (
+                      <p className="mt-1.5 text-[13px] font-medium text-danger">{serverUrlError}</p>
+                    )}
+                  </div>
+                )}
                 <div>
                   <label className="block text-[13px] font-medium text-txt-secondary dark:text-[#8b98a5] mb-1.5">Email</label>
                   <input
