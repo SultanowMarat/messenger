@@ -46,6 +46,8 @@ export default function CallUI() {
     timer: number | null;
     mode: 'incoming' | 'outgoing';
   } | null>(null);
+  const [ringNeedsGesture, setRingNeedsGesture] = useState(false);
+  const [remoteNeedsGesture, setRemoteNeedsGesture] = useState(false);
   const [duration, setDuration] = useState(0);
   const [avatarSize, setAvatarSize] = useState(CALL_AVATAR_SIZE_DEFAULT);
 
@@ -76,6 +78,7 @@ export default function CallUI() {
     try { r.osc.stop(); } catch (_) {}
     try { r.ctx.close(); } catch (_) {}
     ringRef.current = null;
+    setRingNeedsGesture(false);
   };
 
   const startRing = (mode: 'incoming' | 'outgoing') => {
@@ -113,7 +116,12 @@ export default function CallUI() {
     schedule();
     const timer = window.setInterval(schedule, cycle * 1000);
     ringRef.current = { ctx, osc, gain, timer, mode };
-    ctx.resume().catch(() => { /* autoplay may be blocked */ });
+    setRingNeedsGesture(false);
+    ctx.resume()
+      .then(() => {
+        if (ctx.state !== 'running') setRingNeedsGesture(true);
+      })
+      .catch(() => { setRingNeedsGesture(true); });
   };
 
   useEffect(() => {
@@ -126,6 +134,19 @@ export default function CallUI() {
     else stopRing();
     return () => stopRing();
   }, [callState, callError]);
+
+  const unlockRingAudio = () => {
+    if (callState !== 'calling' && callState !== 'ringing') return;
+    const mode = callState === 'ringing' ? 'incoming' : 'outgoing';
+    if (!ringRef.current) startRing(mode);
+    const r = ringRef.current;
+    if (!r) return;
+    r.ctx.resume()
+      .then(() => {
+        if (r.ctx.state === 'running') setRingNeedsGesture(false);
+      })
+      .catch(() => { /* keep prompt */ });
+  };
 
   const peerUid = callPeerId || callFromUserId;
   const peerMember = peerUid
@@ -205,7 +226,11 @@ export default function CallUI() {
       if (!remoteAudioRef.current) return;
       const stream = e.streams?.[0] ?? new MediaStream([e.track]);
       remoteAudioRef.current.srcObject = stream;
-      remoteAudioRef.current.play().catch(() => { /* autoplay may be blocked */ });
+      remoteAudioRef.current.muted = false;
+      remoteAudioRef.current.volume = 1;
+      remoteAudioRef.current.play()
+        .then(() => setRemoteNeedsGesture(false))
+        .catch(() => { setRemoteNeedsGesture(true); });
     };
 
     const send = (type: string, payload: Record<string, unknown>) => {
@@ -260,6 +285,7 @@ export default function CallUI() {
 
     return () => {
       setCallSignalingHandler(null);
+      setRemoteNeedsGesture(false);
       cleanup();
     };
   }, [callState, callId, callIsCaller, setCallSignalingHandler]);
@@ -267,6 +293,15 @@ export default function CallUI() {
   useEffect(() => {
     if (callState !== 'in_call') setDuration(0);
   }, [callState]);
+
+  const unlockRemoteAudio = () => {
+    if (!remoteAudioRef.current) return;
+    remoteAudioRef.current.muted = false;
+    remoteAudioRef.current.volume = 1;
+    remoteAudioRef.current.play()
+      .then(() => setRemoteNeedsGesture(false))
+      .catch(() => { /* keep prompt */ });
+  };
 
   // —— Входящий звонок (как в Telegram: полноэкран, аватар, Принять / Отклонить) ——
   if (callState === 'ringing') {
@@ -281,6 +316,11 @@ export default function CallUI() {
           </div>
           <p className="text-txt dark:text-white text-[clamp(18px,4.5vw,22px)] font-semibold mb-1 w-full">{peerName}</p>
           <p className="text-txt-secondary dark:text-white/70 text-[clamp(14px,3.5vw,15px)] mb-2 w-full">Входящий звонок</p>
+          {ringNeedsGesture && (
+            <button type="button" onClick={unlockRingAudio} className="text-[12px] text-primary hover:underline mb-2">
+              Нажмите, чтобы включить звук
+            </button>
+          )}
           <div className="call-buttons-row">
             <button type="button" onClick={() => rejectCall(callId!)} className="call-btn call-btn-decline" title="Отклонить" aria-label="Отклонить">
               <IconPhoneOff size={28} />
@@ -312,6 +352,11 @@ export default function CallUI() {
           {callError && (
             <p className="text-txt-placeholder dark:text-white/50 text-[13px] mt-1 w-full">Нажмите кнопку, чтобы закрыть</p>
           )}
+          {!callError && ringNeedsGesture && (
+            <button type="button" onClick={unlockRingAudio} className="text-[12px] text-primary hover:underline mt-2">
+              Нажмите, чтобы включить звук
+            </button>
+          )}
           <div className="call-buttons-row">
             <button type="button" onClick={hangupCall} className="call-btn call-btn-hangup" title="Завершить" aria-label="Завершить">
               <IconPhoneOff size={28} />
@@ -334,6 +379,11 @@ export default function CallUI() {
             </div>
             <p className="text-txt dark:text-white text-[clamp(18px,4.5vw,22px)] font-semibold mb-1 w-full">{peerName}</p>
             <p className="text-txt-secondary dark:text-white/70 text-[clamp(14px,3.5vw,15px)] mb-2 w-full">{formatCallDuration(duration)}</p>
+            {remoteNeedsGesture && (
+              <button type="button" onClick={unlockRemoteAudio} className="text-[12px] text-primary hover:underline mb-2">
+                Нажмите, чтобы включить звук
+              </button>
+            )}
             <div className="call-buttons-row">
               <button type="button" onClick={hangupCall} className="call-btn call-btn-hangup" title="Завершить" aria-label="Завершить">
                 <IconPhoneOff size={28} />

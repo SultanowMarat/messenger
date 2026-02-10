@@ -735,7 +735,7 @@ export default function Chat({ onBack, onOpenInfo, onOpenSearch, onOpenProfile }
               <IconPaperclip />
             </button>
             {typeof navigator !== 'undefined' && navigator.mediaDevices != null && (
-              <button onClick={recording ? stopRecording : startRecording} disabled={uploading}
+              <button onClick={recording ? (() => stopRecording()) : startRecording} disabled={uploading}
                 className={`p-2 rounded-compass transition-colors disabled:opacity-50 ${recording ? 'text-danger hover:bg-danger/10' : 'text-txt-secondary hover:text-primary hover:bg-primary/5 dark:text-[#8b98a5] dark:hover:text-primary dark:hover:bg-primary/10'}`}
                 title={recording ? 'Остановить запись' : 'Голосовое сообщение'}>
                 <IconMicrophone size={20} />
@@ -1009,7 +1009,7 @@ function MsgBubble({ msg, isOwn, showAvatar, isGroup, onCtx, onReply, onReact, m
           {msg.content && msg.content_type === 'text' && (
             <p className="text-[13px] whitespace-pre-wrap break-words leading-[18px]">{msg.content}</p>
           )}
-          <div className="flex items-center gap-1 mt-0.5 justify-end flex-shrink-0">
+          <div className="flex items-center gap-1.5 mt-1 justify-end flex-shrink-0">
             {msg.edited_at && <span className={`text-[9px] ${isOwn ? 'text-white/35' : 'text-txt-placeholder dark:text-[#8b98a5]'}`}>ред.</span>}
             <span className={`text-[10px] whitespace-nowrap ${isOwn ? 'text-white/55' : 'text-txt-placeholder dark:text-[#8b98a5]'}`}>{formatTime(msg.created_at)}</span>
             {isOwn && (

@@ -48,14 +48,16 @@ if docker save -o "$BASE_TAR" postgres:16-alpine redis:7-alpine 2>/dev/null; the
   docker save -o "$TAR" \
     postgres:16-alpine redis:7-alpine \
     messenger-auth:latest messenger-api:latest messenger-files:latest messenger-audio:latest \
-    messenger-call:latest messenger-push:latest messenger-frontend:latest messenger-nginx:latest
+    messenger-call:latest messenger-push:latest messenger-frontend:latest messenger-nginx:latest \
+    messenger-turn:latest
   rm -f "$BASE_TAR"
 else
   rm -f "$BASE_TAR"
   echo "   (базовые postgres/redis не сохраняются — на сервере должны быть уже или подтянутся при первом up)"
   docker save -o "$TAR" \
     messenger-auth:latest messenger-api:latest messenger-files:latest messenger-audio:latest \
-    messenger-call:latest messenger-push:latest messenger-frontend:latest messenger-nginx:latest
+    messenger-call:latest messenger-push:latest messenger-frontend:latest messenger-nginx:latest \
+    messenger-turn:latest
 fi
 
 echo "==> Копирование образов на сервер..."

@@ -184,6 +184,7 @@ services:
       FILE_SERVICE_URL: "http://files:8083"
       AUDIO_SERVICE_URL: "http://audio:8084"
       CORS_ALLOWED_ORIGINS: "${CORS_ALLOWED_ORIGINS:-*}"
+      CALL_ICE_SERVERS: "${CALL_ICE_SERVERS:-}"
     volumes:
       - ./services/api/config:/app/config:ro
       - ./data/push:/app/vapid
@@ -215,3 +216,24 @@ services:
       - frontend
       - api
       - call
+
+  # TURN сервер (WebRTC) — нужен для корректной связи за NAT/Firewall.
+  turn:
+    build:
+      context: .
+      dockerfile: services/turn/Dockerfile
+      platforms: [linux/amd64]
+    container_name: messenger-turn
+    restart: unless-stopped
+    ports:
+      - "3478:3478/tcp"
+      - "3478:3478/udp"
+      - "49160-49200:49160-49200/udp"
+    environment:
+      TURN_REALM: "${TURN_REALM:-messenger}"
+      TURN_USERNAME: "${TURN_USERNAME:-turn}"
+      TURN_PASSWORD: "${TURN_PASSWORD:-turnpass}"
+      TURN_PORT: "${TURN_PORT:-3478}"
+      TURN_MIN_PORT: "${TURN_MIN_PORT:-49160}"
+      TURN_MAX_PORT: "${TURN_MAX_PORT:-49200}"
+      TURN_EXTERNAL_IP: "${TURN_EXTERNAL_IP:-}"
