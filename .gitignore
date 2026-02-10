@@ -48,3 +48,6 @@ macos/dist/
 .vscode/
 *.swp
 *.swo
+
+# README оставляем в репозитории
+!README.md
